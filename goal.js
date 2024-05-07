@@ -1,7 +1,6 @@
 class Goal {
 	constructor(x, y) {
-		this.x = x;
-		this.y = y;
+		this.position = createVector(x, y);
 		this.width = 20;
 		this.height = 20;
 	}
@@ -9,7 +8,7 @@ class Goal {
 	show() {
 		fill(0, 255, 0);
 		stroke(0);
-		ellipse(this.x, this.y, this.width, this.height);
+		ellipse(this.position.x, this.position.y, this.width, this.height);
 	}
 
 	// check for collision against agents
@@ -20,8 +19,16 @@ class Goal {
 		let radius = 5;
 
 		// Find the closest point to the circle within the rectangle
-		let closestX = constrain(circleX, this.x - this.width / 2, this.x + this.width / 2);
-		let closestY = constrain(circleY, this.y - this.height / 2, this.y + this.height / 2);
+		let closestX = constrain(
+			circleX,
+			this.position.x - this.width / 2,
+			this.position.x + this.width / 2
+		);
+		let closestY = constrain(
+			circleY,
+			this.position.y - this.height / 2,
+			this.position.y + this.height / 2
+		);
 
 		// Calculate the distance between the circle's center and the closest point
 		let distanceX = circleX - closestX;
