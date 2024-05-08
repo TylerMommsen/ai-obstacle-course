@@ -4,6 +4,8 @@ class GeneticAlgorithm {
 		this.mutationRate = mutationRate;
 		this.population = [];
 		this.generation = 1;
+		this.eliteCount = Math.floor(populationSize * 0.03); // top 5% as elite
+		this.displayingBest = false;
 	}
 
 	// create the initial population of agents
@@ -16,30 +18,34 @@ class GeneticAlgorithm {
 	// calculate each agent's fitness (how close they made it to the goal)
 	calculateFitness() {
 		let fitnessSum = 0;
+		const checkpointBonus = 10;
 		const goalBonus = 1000;
-		const maxDistance = dist(0, height / 2 - 100, width, height / 2 + 100);
+		const baseFitness = 1 / 16.0;
 
-		// set each agent's fitness value
-		this.population.forEach((agent) => {
-			const distanceToGoal = p5.Vector.dist(agent.position, goal.position);
-			const normalizedDistance = distanceToGoal / maxDistance;
+		for (let i = 0; i < this.population.length; i++) {
+			let agent = this.population[i];
+			let fitness = baseFitness;
+			let distanceToEnd = p5.Vector.dist(agent.position, goal.position);
 
-			let fitness = (1.0 - normalizedDistance) ** 2;
+			fitness += 1 / (distanceToEnd * distanceToEnd * distanceToEnd);
 
-			if (goal.collides(agent)) {
-				const remainingSteps = agent.brain.size - agent.brain.currentDirection;
-				fitness += goalBonus + remainingSteps;
+			for (let j = 0; j < checkpoints.length; j++) {
+				if (agent.visitedCheckpoints.has(j)) {
+					fitness += checkpointBonus;
+				}
 			}
 
-			for (let i = 0; i < obstacles.length; i++) {
-				if (obstacles[i].collides(agent)) {
-					fitness *= 0.1;
-				}
+			if (agent.reachedGoal) {
+				fitness += goalBonus;
+			}
+
+			if (agent.hitObstacle) {
+				fitness /= 2;
 			}
 
 			agent.fitness = fitness;
 			fitnessSum += agent.fitness;
-		});
+		}
 
 		// set each agent's fitness probability between 0 and 1
 		for (let i = 0; i < this.populationSize; i++) {
@@ -64,18 +70,35 @@ class GeneticAlgorithm {
 	// copy the agent
 	copy(parent) {
 		const child = new Agent();
-		child.brain.directions = parent.brain.directions.map((direction) => ({
-			angle: direction.angle,
-			speed: direction.speed,
-		}));
+		child.brain.directions = [...parent.brain.directions];
+		child.reachedGoal = parent.reachedGoal;
+		return child;
+	}
+
+	// crossover (recombination) between two parents to produce a child
+	crossover(parent1, parent2) {
+		const child = new Agent();
+		for (let i = 0; i < parent1.brain.directions.length; i++) {
+			if (random(1) < 0.5) {
+				child.brain.directions[i] = parent1.brain.directions[i];
+			} else {
+				child.brain.directions[i] = parent2.brain.directions[i];
+			}
+		}
 		return child;
 	}
 
 	// mutate the directions of an agent with a certain probability
 	mutate(child) {
 		for (let i = 0; i < child.brain.directions.length; i++) {
-			if (random(1) < this.mutationRate) {
-				child.brain.directions[i] = { angle: random(TWO_PI), speed: random(0.5, 3) };
+			if (child.reachedGoal) {
+				if (random(2) < this.mutationRate) {
+					child.brain.directions[i] = random(TWO_PI);
+				}
+			} else {
+				if (random(1) < this.mutationRate) {
+					child.brain.directions[i] = random(TWO_PI);
+				}
 			}
 		}
 	}
@@ -84,11 +107,22 @@ class GeneticAlgorithm {
 	evolve() {
 		const newPopulation = [];
 		this.calculateFitness();
+		const sortedPopulation = [...this.population].sort((a, b) => b.fitness - a.fitness);
 
-		for (let i = 0; i < this.population.length; i++) {
-			const parent = this.selection();
-			const child = this.copy(parent);
+		// keep the best agents as elites
+		for (let i = 0; i < this.eliteCount; i++) {
+			let newAgent = this.copy(sortedPopulation[i]);
+			newAgent.reachedGoal = false;
+			newPopulation.push(newAgent);
+		}
+
+		// create the rest of the new population
+		for (let i = 0; i < this.population.length - this.eliteCount; i++) {
+			const parent1 = this.selection();
+			// const parent2 = this.selection();
+			const child = this.copy(parent1);
 			this.mutate(child);
+			child.reachedGoal = false;
 			newPopulation.push(child);
 		}
 
@@ -100,5 +134,12 @@ class GeneticAlgorithm {
 	// check if all agents have stopped moving (died or found the goal)
 	allAgentsFinished() {
 		return this.population.every((agent) => agent.brain.currentDirection >= agent.brain.size);
+	}
+
+	getBestAgent() {
+		return this.population.reduce(
+			(best, current) => (current.fitness > best.fitness ? current : best),
+			this.population[0]
+		);
 	}
 }

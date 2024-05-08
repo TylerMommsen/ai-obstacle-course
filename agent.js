@@ -1,6 +1,7 @@
 class Agent {
 	constructor() {
-		this.position = createVector(50, height / 2);
+		this.startPosition = createVector(50, height / 2);
+		this.position = this.startPosition.copy();
 		this.velocity = createVector(0, 0);
 		this.acceleration = createVector(0, 0);
 		this.brain = new Brain(1000);
@@ -9,24 +10,23 @@ class Agent {
 		this.angle = 0;
 		this.targetAngle = 0;
 		this.turnSpeed = 0.05;
-		this.maxSpeed = 3;
-		this.minSpeed = 0.5;
-		this.speed = 1;
 		this.fitness = 0;
-		this.fitnessProbabilty = 0;
+		this.fitnessProbability = 0;
 		this.stopped = false;
+		this.stepsAlive = 0;
+		this.hitObstacle = false;
+		this.maxSpeed = 3;
+		this.currentCheckpoint = 0;
+		this.visitedCheckpoints = new Set();
+		this.reachedGoal = false;
 	}
 
 	move() {
 		if (this.brain.currentDirection < this.brain.directions.length) {
-			const direction = this.brain.directions[this.brain.currentDirection];
-			this.targetAngle = direction.angle;
+			this.targetAngle = this.brain.directions[this.brain.currentDirection];
 			this.angle = this.lerpAngle(this.angle, this.targetAngle, this.turnSpeed);
 
-			this.speed = direction.speed;
-			this.speed = constrain(this.speed, this.minSpeed, this.maxSpeed);
-			this.acceleration = p5.Vector.fromAngle(this.angle).mult(this.speed);
-
+			this.acceleration = p5.Vector.fromAngle(this.angle);
 			this.brain.currentDirection++;
 		} else {
 			this.acceleration.set(0, 0);
@@ -47,7 +47,10 @@ class Agent {
 	}
 
 	update() {
-		this.move();
+		if (!this.stopped) {
+			this.move();
+			this.stepsAlive++;
+		}
 	}
 
 	lerpAngle(current, target, amt) {
@@ -57,9 +60,8 @@ class Agent {
 	}
 
 	kill() {
-		this.velocity.set(0, 0);
-		this.acceleration.set(0, 0);
 		this.brain.currentDirection = this.brain.size + 1;
+		this.stopped = true;
 	}
 
 	outOfBounds() {

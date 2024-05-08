@@ -10,8 +10,7 @@ class Brain {
 	randomize() {
 		for (let i = 0; i < this.size; i++) {
 			const randomAngle = random(TWO_PI);
-			const randomSpeed = random(0.5, 3);
-			this.directions.push({ angle: randomAngle, speed: randomSpeed });
+			this.directions.push(randomAngle);
 		}
 	}
 }
